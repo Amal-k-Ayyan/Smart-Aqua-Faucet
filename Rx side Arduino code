@@ -1,0 +1,107 @@
+// Arduino code for VL53LOX, potentiometer
+
+#define POTENTIOMETER_PIN A0
+#include "Adafruit_VL53L0X.h"
+
+
+const int set_distpin = 2;  // interrupt pin from nodemcu
+const int led = 13;
+const int solenoid = 5;
+const int sol_power = 7;
+
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+int data;
+int m;
+void setup() {
+  Serial.begin(115200);
+  
+  pinMode(led, OUTPUT);
+  pinMode(set_distpin,INPUT);
+  pinMode(sol_power,INPUT);
+  pinMode(solenoid,OUTPUT);
+  
+  // wait until serial port opens for native USB devices
+  while (! Serial) {
+    delay(1);
+  }
+  
+  Serial.println("Adafruit VL53L0X test");
+  if (!lox.begin()) {
+    Serial.println(F("Failed to boot VL53L0X"));
+    while(1);
+  }
+  // power 
+  Serial.println(F("VL53L0X API Simple Ranging example\n\n")); 
+}
+
+
+void loop() {
+
+//Serial.print(set_distpin);
+
+
+if(digitalRead(set_distpin) == HIGH && digitalRead(sol_power) == LOW)
+{
+  data = analogRead(POTENTIOMETER_PIN);
+  m = map(data, 0, 1023, 0, 800);
+  Serial.print("Potentiometer at ");
+  Serial.println(m);
+  delay(100);
+
+  VL53L0X_RangingMeasurementData_t measure;
+    
+  Serial.print("Reading a measurement... ");
+  lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
+
+  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
+    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+  } else {
+    Serial.println(" out of range ");
+  }
+  //Serial.print(m);
+  
+    if (measure.RangeMilliMeter <= m)
+    {Serial.println("LED ON");
+    digitalWrite(led,HIGH);}
+    
+    else {
+    digitalWrite(led,LOW);
+    delay(100);
+    }
+  }
+
+  
+
+  if ( digitalRead(sol_power) == HIGH)
+  {
+    digitalWrite(led,LOW);
+    digitalWrite(solenoid,HIGH);
+    VL53L0X_RangingMeasurementData_t measure;
+    
+  Serial.print("Reading a measurement... ");
+  lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
+
+  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
+    Serial.print("Distance (mm): "); 
+    Serial.println(measure.RangeMilliMeter);
+  } else {
+    Serial.println(" out of range ");
+  }
+  
+  Serial.print(m);
+    if (measure.RangeMilliMeter <= m)
+    {Serial.println("Solenoid ON");
+    digitalWrite(solenoid,LOW);}
+    else
+    digitalWrite(solenoid,HIGH);
+    delay(1000);
+    }
+
+     if (digitalRead(set_distpin) == LOW && digitalRead(sol_power) == LOW)
+     {
+      digitalWrite(led,LOW);
+      digitalWrite(solenoid,LOW);
+      
+      }
+      
+      }
