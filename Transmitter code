@@ -1,4 +1,4 @@
-// Code for Nodemcu transmitter.It has ultrasonic sensor, temperature sensor attached
+// Code for Nodemcu transmitter. JSN SR - 40T Waterproof Ultrasonic Sensor, DS18B20 Temperature sensor Sensors are attached to transmitter fixed at reservoir side.
 #include <ESP8266WiFi.h>
 #include <espnow.h>
 #include "DHT.h"        // including the library of DHT11 temperature and humidity sensor
