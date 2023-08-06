@@ -1,1 +1,106 @@
+// Code for Nodemcu transmitter.It has ultrasonic sensor, temperature sensor attached
+#include <ESP8266WiFi.h>
+#include <espnow.h>
+#include "DHT.h"        // including the library of DHT11 temperature and humidity sensor
+#define DHTTYPE DHT11   // DHT 11
+#define dht_dpin 4
+DHT dht(dht_dpin, DHTTYPE);
 
+// REPLACE WITH RECEIVER MAC Address
+uint8_t broadcastAddress1[] = {0xE8, 0xDB, 0x84, 0xC4, 0xC7, 0x8B};
+
+// Structure example to send data
+// Must match the receiver structure
+
+const int trigP = D5;  //D4 Or GPIO-2 of nodemcu
+const int echoP = D6;  //D3 Or GPIO-0 of nodemcu 
+
+long duration;
+int distance;
+float t;
+
+typedef struct test_struct {
+    int x;
+    int y;
+} test_struct;
+
+// Create a struct_message called test to store variables to be sent
+test_struct test;
+
+unsigned long lastTime = 0;  
+unsigned long timerDelay = 2000;  // send readings timer
+
+// Callback when data is sent
+void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
+  char macStr[18];
+  Serial.print("Packet to:");
+  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+         mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  Serial.print(macStr);
+  Serial.print(" send status: ");
+  if (sendStatus == 0){
+    Serial.println("Delivery success");
+  }
+  else{
+    Serial.println("Delivery fail");
+  }
+}
+ 
+void setup() {
+  pinMode(trigP, OUTPUT);  // Sets the trigPin as an Output
+  pinMode(echoP, INPUT);   // Sets the echoPin as an Input
+  dht.begin();
+  Serial.begin(115200);      // Open serial channel at 9600 baud rate
+  // Init Serial Monitor
+  Serial.begin(115200);
+ 
+  // Set device as a Wi-Fi Station
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  // Init ESP-NOW
+  if (esp_now_init() != 0) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+
+  esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
+  
+  // Once ESPNow is successfully Init, we will register for Send CB to
+  // get the status of Trasnmitted packet
+  esp_now_register_send_cb(OnDataSent);
+  
+  // Register peer
+  esp_now_add_peer(broadcastAddress1, ESP_NOW_ROLE_SLAVE, 1, NULL, 0);
+
+}
+ 
+void loop() {
+  digitalWrite(trigP, LOW);   // Makes trigPin low
+  delayMicroseconds(2);       // 2 micro second delay 
+
+  digitalWrite(trigP, HIGH);  // tigPin high
+  delayMicroseconds(10);      // trigPin high for 10 micro seconds
+  digitalWrite(trigP, LOW);   // trigPin low
+
+  duration = pulseIn(echoP, HIGH);   //Read echo pin, time in microseconds
+  distance= duration*0.034/2;        //Calculating actual/real distance
+
+  t = dht.readTemperature();
+
+  Serial.print("Distance = ");        //Output distance on arduino serial monitor 
+  Serial.println(distance);
+  Serial.print("temperature = ");
+  Serial.print(t);
+  delay(3000);                        //Pause for 3 seconds and start measuring distance again
+  if ((millis() - lastTime) > timerDelay) {
+    // Set values to send
+    //random(1, 50)
+    test.x = distance;
+    test.y = t;
+    // Send message via ESP-NOW
+    esp_now_send(0, (uint8_t *) &test, sizeof(test));
+
+    lastTime = millis();
+  }
+}
