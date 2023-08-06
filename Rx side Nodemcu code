@@ -1,1 +1,170 @@
+// Code for nodemcu that controls OLED display. It provides interrupt to arduino via pin D8.
 
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <ESP8266WiFi.h>
+#include <espnow.h>
+
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+
+//int data=1;
+//int temp=2;
+int t;
+const int height = 30;
+
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+const int buttonPin = 16;     // the number of the pushbutton pin
+const int set_distpin = 15;
+
+int buttonPushCounter = 0;   // counter for the number of button presses
+boolean buttonState = LOW;         // current state of the button
+boolean lastButtonState = LOW;     // previous state of the button
+
+typedef struct test_struct {
+    int x;
+    int y;
+    int z;
+} test_struct;
+
+
+// Create a struct_message called myData
+test_struct myData;
+
+// Callback function that will be executed when data is received
+void OnDataRecv(uint8_t * mac, uint8_t *incomingData, uint8_t len) {
+  memcpy(&myData, incomingData, sizeof(myData));
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  Serial.print("x: ");
+  Serial.println(myData.x);
+  Serial.print("y: ");
+  Serial.println(myData.y);
+  Serial.println();
+  //Serial.println(myData.z);
+  //Serial.println();
+}
+
+
+void setup() {
+
+  
+  Serial.begin(115200);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  // Init ESP-NOW
+  if (esp_now_init() != 0) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  
+  // Once ESPNow is successfully Init, we will register for recv CB to
+  // get recv packer info
+  esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
+  esp_now_register_recv_cb(OnDataRecv);
+
+
+  // initialize the pushbutton pin as an input:
+  pinMode(buttonPin, INPUT);
+  pinMode(set_distpin, OUTPUT);
+
+  // Below is the setup code for the screen only along with the welcome message
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;);
+  }
+  delay(2000);
+  display.clearDisplay();
+
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 10);
+  // Display static text
+  //display.println("Hello");
+  //display.display();
+  //delay(2000);
+  //display.clearDisplay();
+  //display.display();
+
+}
+
+void loop() {
+
+  // read the state of the pushbutton value:
+  buttonState = digitalRead(buttonPin);
+
+  //Serial.println(buttonPushCounter);
+  switch (buttonPushCounter) // choose what to display based on buttonPushCounter value
+  {
+    case 0:
+
+
+      display.clearDisplay();
+      display.setTextSize(2);             // Normal 1:1 pixel scale
+      display.setTextColor(SSD1306_WHITE);   
+      display.setCursor(0,0);
+      display.print("Wat-level:");// Draw white text
+      digitalWrite(set_distpin,LOW);
+      display.setCursor(50,19);
+      display.print(myData.x);
+      display.display();
+      break;
+
+
+    case 1:
+
+      display.clearDisplay();
+      display.setTextSize(2);             // Normal 1:1 pixel scale
+      display.setTextColor(SSD1306_WHITE);   
+      display.setCursor(0,0);
+      display.print("Temperature:");// Draw white text
+      digitalWrite(set_distpin,LOW);
+      display.setCursor(50,19);
+      display.print(myData.y);
+      display.display();
+      break;
+
+    case 2:
+
+      display.clearDisplay();
+      display.setTextSize(2);             // Normal 1:1 pixel scale
+      display.setTextColor(SSD1306_WHITE);   
+      display.setCursor(0,0);
+      display.print("Set dist:");// Draw white text
+      digitalWrite(set_distpin,HIGH);
+      display.setCursor(50,19);
+      Serial.print('Set_Distance_Pin');
+      //Serial.print(set_distpin);
+      display.display();
+      break;
+
+  }
+
+  if (buttonState != lastButtonState)
+  {
+    if (buttonState == HIGH)
+    {
+      // if the current state is HIGH then the button
+      // went from off to on:
+      buttonPushCounter++;  // add one to counter
+      display.clearDisplay();
+      display.display();
+      if (buttonPushCounter > 2)
+      {
+        buttonPushCounter = 0;
+      }
+
+    }
+    // save the current state as the last state,
+    //for next time through the loop
+    lastButtonState = buttonState;
+  }
+
+
+}
